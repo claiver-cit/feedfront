@@ -5,132 +5,129 @@ import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
 import com.ciandt.feedfront.excecoes.EmailInvalidoException;
 import com.ciandt.feedfront.excecoes.EmployeeNaoEncontradoException;
 
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import java.io.*;
-
-public class Employee {
-    private String id;
+public class Employee implements Serializable{
+    private final String id;
     private String nome;
     private String sobrenome;
     private String email;
 
-    private String path;
-
-    public static List<Employee> list = new ArrayList<Employee>();
+    private static String path = "src/main/resources/";
 
 
     public Employee(String nome, String sobrenome, String email) throws ComprimentoInvalidoException {
         this.id = UUID.randomUUID().toString();
-        this.nome = nome;
-        this.sobrenome = sobrenome;
+
+        if (nome.length() <= 2) {
+            throw new ComprimentoInvalidoException("Comprimento do nome deve ser maior que 2 caracteres.");
+        }else {
+            this.nome = nome;
+        }
+
+        if (sobrenome.length() <= 2) {
+            throw new ComprimentoInvalidoException("Comprimento do sobrenome deve ser maior que 2 caracteres.");
+        }else {
+            this.sobrenome = sobrenome;
+        }
+
         this.email = email;
-        this.path = "/home/claiver/Documentos/files/" + getId() + ".byte";
     }
 
-    public static void salvarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException {
-        list.add(employee);
+    public static Employee salvarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException {
         try{
-            BufferedWriter bw = new BufferedWriter(new FileWriter(employee.path));
-            bw.write(employee.nome + "\r\n");
-            bw.write(employee.sobrenome + "\r\n");
-            bw.write(employee.email + "\r\n");
-            bw.close();
-        }catch (Exception ex){
-            return;
+            FileOutputStream fos = new FileOutputStream(path + employee.id + ".byte");
+            ObjectOutputStream oos = new ObjectOutputStream(fos);
+            oos.writeObject(employee);
+            oos.close();
+        }catch (Throwable ex){
+            System.out.println(ex.getMessage());
+            ex.printStackTrace();
         }
 
-
+        return employee;
     }
 
-    public static Employee atualizarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException {
-
-        try{
-            BufferedWriter bw = new BufferedWriter(new FileWriter(employee.path));
-            bw.write(employee.nome + "\r\n");
-            bw.write(employee.sobrenome + "\r\n");
-            bw.write(employee.email + "\r\n");
-            bw.close();
-
-            int var = 0;
-            for (int i = 0; i < list.size(); i++) {
-                if (list.get(i).getId().contains(employee.id)) {
-                    var = i;
-                }
-            }
-            if(list.get(var).equals("")){
-                throw new EmployeeNaoEncontradoException("Employee não encontrado");
-            }else{
-
-                list.get(var).setNome(employee.nome);
-                list.get(var).setSobrenome(employee.sobrenome);
-                list.get(var).setEmail(employee.email);
-                return list.get(var);
-            }
-
-        }catch (Exception ex){
-            return null;
-        }
-
+    public static Employee atualizarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException, EmployeeNaoEncontradoException {
+        return salvarEmployee(employee);
     }
 
     public static List<Employee> listarEmployees() throws ArquivoException {
+        List<Employee> list = new ArrayList<>();
+        Stream<Path> paths;
+        try {
+            paths = Files.walk(Paths.get(path));
+            List<String> files = paths
+                    .map(p -> p.getFileName().toString())
+                    .filter(p -> p.endsWith(".byte"))
+                    .map(p -> p.replace(".byte", ""))
+                    .collect(Collectors.toList());
+            for (String file:files){
+                try {
+                    list.add(buscarEmployee(file));
+                } catch (EmployeeNaoEncontradoException e) {
+                    throw new RuntimeException("Employee nao encontrado");
+                }
+            }
+            paths.close();
+        } catch (IOException e) {
+            throw new ArquivoException("");
+        }
+
         return list;
     }
 
     public static Employee buscarEmployee(String id) throws ArquivoException, EmployeeNaoEncontradoException {
-        int var = 0;
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).getId().contains(id)) {
-                var = i;
+
+        try {
+            ObjectInputStream ois;
+            FileInputStream fis;
+            fis = new FileInputStream(path + id + ".byte");
+            ois = new ObjectInputStream(fis);
+            Employee employee = (Employee) ois.readObject();
+            ois.close();
+            return employee;
+        } catch (IOException | ClassNotFoundException e) {
+            if(e.getClass().getSimpleName().equals("FileNotFoundException")){
+                throw new EmployeeNaoEncontradoException("Employee não existe no repositório");
             }
-        }
-        if(list.get(var).equals("")){
-            throw new EmployeeNaoEncontradoException("Employee não encontrado");
-        }else{
-            return list.get(var);
+            throw new ArquivoException("");
         }
 
     }
 
     public static void apagarEmployee(String id) throws ArquivoException, EmployeeNaoEncontradoException {
-        int var = 0;
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).getId().contains(id)) {
-                var = i;
-            }
+        try {
+            buscarEmployee(id);
+            new File(path + id + ".byte").delete();
+        } catch (EmployeeNaoEncontradoException e) {
+            throw new EmployeeNaoEncontradoException("Employee não existe no repositório");
         }
-        if(list.get(var).equals("")){
-            throw new EmployeeNaoEncontradoException("Employee não encontrado");
-        }else{
-            list.remove(var);
-        }
+
     }
 
     public String getNome() {
         return this.nome;
     }
 
-    public void setNome(String nome) throws ComprimentoInvalidoException {
-        if (nome.length() <= 2) {
-            throw new ComprimentoInvalidoException("Comprimento do nome deve ser maior que 2 caracteres.");
-        }else{
-            this.nome = nome;
-        }
+    public void setNome(String nome) {
+        this.nome = nome;
     }
 
     public String getSobrenome() {
         return this.sobrenome;
     }
 
-    public void setSobrenome(String sobrenome) throws ComprimentoInvalidoException {
-        if(sobrenome.length() <= 2){
-            throw new ComprimentoInvalidoException("Comprimento do sobrenome deve ser maior que 2 caracteres.");
-        }else{
-            this.sobrenome = sobrenome;
-        }
+    public void setSobrenome(String sobrenome) {
+        this.sobrenome = sobrenome;
     }
 
     public String getEmail() {
@@ -146,11 +143,11 @@ public class Employee {
     }
 
     public String getPath() {
-        return this.path;
+        return path;
     }
 
     public void setPath(String path) {
-        this.path = path;
+        Employee.path = path;
     }
 
     @Override

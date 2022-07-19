@@ -8,6 +8,9 @@ import com.ciandt.feedfront.excecoes.EmployeeNaoEncontradoException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,10 +20,27 @@ public class EmployeeTest {
 
     public Employee employee1;
     public Employee employee2;
+
     @BeforeEach
-    public void initEach() throws ComprimentoInvalidoException {
+    public void initEach() throws ComprimentoInvalidoException, ArquivoException {
         employee1 = new Employee("Jose", "Silveira", "j.silveira@email.com");
         employee2 = null;
+
+        try {
+            Files.walk(Paths.get("src/main/resources/data/employee/"))
+                    .filter(p -> p.toString().endsWith(".byte"))
+                    .forEach(p -> {
+                        new File(p.toString()).delete();
+                    });
+        } catch (Exception e) {
+
+        }
+
+        try {
+            Employee.salvarEmployee(employee1);
+        } catch (EmailInvalidoException e) {
+            e.getMessage();
+        }
     }
 
     @Test
