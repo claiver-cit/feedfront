@@ -65,14 +65,14 @@ public class Employee implements Serializable{
         Stream<Path> paths;
         try {
             paths = Files.walk(Paths.get(path));
-            List<String> files = paths
+            List<String> name = paths
                     .map(p -> p.getFileName().toString())
                     .filter(p -> p.endsWith(".byte"))
                     .map(p -> p.replace(".byte", ""))
                     .collect(Collectors.toList());
-            for (String file:files){
+            for (String id:name){
                 try {
-                    list.add(buscarEmployee(file));
+                    list.add(buscarEmployee(id));
                 } catch (EmployeeNaoEncontradoException e) {
                     throw new RuntimeException("Employee nao encontrado");
                 }
