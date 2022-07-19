@@ -57,7 +57,12 @@ public class Employee implements Serializable{
     }
 
     public static Employee atualizarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException, EmployeeNaoEncontradoException {
-        return salvarEmployee(employee);
+        try{
+            buscarEmployee(employee.id);
+            return salvarEmployee(employee);
+        }catch (EmployeeNaoEncontradoException e){
+            throw new EmployeeNaoEncontradoException("Employee não existe no repositório");
+        }
     }
 
     public static List<Employee> listarEmployees() throws ArquivoException {
